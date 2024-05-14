@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Function to check Elasticsearch clusters for a project
+check_elasticsearch_clusters() {
+    project_id=$1
+    
+    if [[ $project_id == mendel-* ]]; then
+        echo "Checking project: $project_id"
+        
+        # Set the project
+        gcloud config set project $project_id >/dev/null 2>&1
+        
+        # List Elasticsearch clusters with a timeout of 10 minutes
+        clusters=$(timeout 600s gcloud compute instances list --filter="labels.service=es" --format="value(name,zone)" 2>/dev/null)
+        
+        if [ $? -eq 0 ]; then
+            if [ -n "$clusters" ]; then
+                echo "  Elasticsearch clusters found:"
+                echo "$clusters"
+            else
+                echo "  No Elasticsearch clusters found"
+            fi
+        else
+            echo "  Command timed out or encountered an error"
+        fi
+        
+        echo "----------------------"
+    fi
+}
+
+# List all accessible projects
+projects=$(gcloud projects list --format="value(projectId)" 2>/dev/null)
+
+if [ $? -eq 0 ]; then
+    # Iterate over each project and check Elasticsearch clusters
+    for project in $projects; do
+        if [[ $project == mendel-* ]]; then
+            check_elasticsearch_clusters $project
+        fi
+    done
+else
+    echo "Failed to retrieve the list of projects. Please check your gcloud configuration and permissions."
+fi
